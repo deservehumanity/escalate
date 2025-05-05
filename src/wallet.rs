@@ -81,7 +81,7 @@ impl Wallet {
         let wallet: InnerWallet = serde_json::from_str(&contents).unwrap();
         
         let master_key = Xpriv::new_master(
-            Network::Bitcoin,
+            Network::Bitcoin, // TODO: Change this
             &wallet.mnemonic.to_seed("")
         ).unwrap();
         
@@ -91,7 +91,7 @@ impl Wallet {
             master_key,
             next_address: 0,
             derived_keys: HashMap::new(),
-            network: Network::Bitcoin
+            network: Network::Bitcoin // TODO: Change this
         };
         
         for _ in 0..wallet.next_address {
@@ -157,8 +157,14 @@ impl Wallet {
 
     pub fn get_new_address(&mut self) -> Option<&DerivedKey> {
         let index = self.next_address;
+        let coin_type = match self.network {
+            Network::Bitcoin => 0,
+            Network::Testnet => 1,
+            _ => 1
+        };
 
-        let path = format!("m/84'/0'/0'/0/{}", index);
+        let path = format!("m/84'/{}'/0'/0/{}", coin_type, index);
+
         self.derive_key(&path).unwrap();
 
         self.derived_keys.get(&path)

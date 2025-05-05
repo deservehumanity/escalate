@@ -17,11 +17,9 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     New,
-    
     Ls,
-
+    Ca,
     Receive,
-
     Send {
         #[arg(short, long)]
         to: String,
@@ -39,7 +37,7 @@ fn main() {
             let wl = Wallet::new(Network::Bitcoin);
             
             println!("Please write down following phrase somewhere safe.");
-            println!("Without it you will lose ability to recover access to your wallet. The order matters.\n");
+            println!("Without it you will lose ability to recover access to your wallet. The order matters.");
             
             println!("-------------");    
 
@@ -55,6 +53,23 @@ fn main() {
             let wl = Wallet::load("wallet.esc");
             for (domain, key) in &wl.derived_keys {
                 println!("{domain} -> {}", key.address);
+            }
+        }
+        
+        Commands::Ca => {
+            let wl = Wallet::load("wallet.esc");
+            let latest_addr_id = if wl.next_address > 0 {
+                wl.next_address - 1
+            } else {
+                0
+            };
+
+            let path = format!("m/84'/0'/0'/0/{}", latest_addr_id);
+
+            if let Some(dk) = wl.derived_keys.get(&path) {
+                println!("Addr {} -> {}", latest_addr_id, dk.address);
+            } else {
+                println!("No address found for index {}", latest_addr_id);
             }
         }
 
