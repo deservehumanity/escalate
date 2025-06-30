@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
@@ -87,4 +89,62 @@ func (w *Wallet) DeriveAddress() (string, error) {
 	w.Index++
 
 	return address, nil
+}
+
+func (w *Wallet) ForgetAllButFirst() {
+	w.Addresses = w.Addresses[:1]
+}
+
+type AddressStats struct {
+	Address      string       `json:"address"`
+	ChainStats   ChainStats   `json:"chain_stats"`
+	MempoolStats MempoolStats `json:"mempool_stats"`
+}
+
+type ChainStats struct {
+	FundedTxoCount int64 `json:"funded_txo_count"`
+	FundedTxoSum   int64 `json:"funded_txo_sum"`
+	SpentTxoCount  int64 `json:"spent_txo_count"`
+	SpentTxoSum    int64 `json:"spent_txo_sum"`
+	TxCount        int64 `json:"tx_count"`
+}
+
+type MempoolStats struct {
+	FundedTxoCount int64 `json:"funded_txo_count"`
+	FundedTxoSum   int64 `json:"funded_txo_sum"`
+	SpentTxoCount  int64 `json:"spent_txo_count"`
+	SpentTxoSum    int64 `json:"spent_txo_sum"`
+	TxCount        int64 `json:"tx_count"`
+}
+
+func (w *Wallet) GetBalance() (int64, error) {
+	var balance int64 = 0
+
+	for _, address := range w.Addresses {
+		stats, err := getAddressStats(address)
+		if err != nil {
+			return 0, err
+		}
+
+		balance += stats.ChainStats.FundedTxoSum - stats.ChainStats.SpentTxoSum
+	}
+
+	return balance, nil
+}
+
+func getAddressStats(address string) (*AddressStats, error) {
+	url := fmt.Sprintf("https://blockstream.info/api/address/%s", address)
+
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var stats AddressStats
+	if err := json.NewDecoder(res.Body).Decode(&stats); err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
 }
