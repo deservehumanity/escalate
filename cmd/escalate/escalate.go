@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -174,6 +175,37 @@ var forgetCmd = &cobra.Command{
 	},
 }
 
+var pollCmd = &cobra.Command{
+	Use:   "poll",
+	Short: "Polls last address for transactions",
+	Run: func(cmd *cobra.Command, args []string) {
+		w, err := loadWallet()
+		if err != nil {
+			panic(err)
+		}
+
+		var currentStats *AddressStats
+
+		for {
+			s, err := GetAddressStats(w.Addresses[len(w.Addresses)-1])
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			if currentStats != nil &&
+				s.ChainStats.TxCount > currentStats.ChainStats.TxCount {
+				fmt.Println("New transaction spotted")
+				fmt.Println("Before: ", currentStats.ChainStats)
+				fmt.Println("After: ", s.ChainStats)
+			}
+
+			time.Sleep(10 * time.Second)
+			s = currentStats
+		}
+
+	},
+}
+
 func main() {
 	rootCmd.AddCommand(newCmd)
 	rootCmd.AddCommand(receiveCmd)
@@ -181,6 +213,7 @@ func main() {
 	rootCmd.AddCommand(caCmd)
 	rootCmd.AddCommand(balanceCmd)
 	rootCmd.AddCommand(forgetCmd)
+	rootCmd.AddCommand(pollCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)

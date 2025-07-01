@@ -121,7 +121,7 @@ func (w *Wallet) GetBalance() (int64, error) {
 	var balance int64 = 0
 
 	for _, address := range w.Addresses {
-		stats, err := getAddressStats(address)
+		stats, err := GetAddressStats(address)
 		if err != nil {
 			return 0, err
 		}
@@ -132,7 +132,7 @@ func (w *Wallet) GetBalance() (int64, error) {
 	return balance, nil
 }
 
-func getAddressStats(address string) (*AddressStats, error) {
+func GetAddressStats(address string) (*AddressStats, error) {
 	url := fmt.Sprintf("https://blockstream.info/api/address/%s", address)
 
 	res, err := http.Get(url)
