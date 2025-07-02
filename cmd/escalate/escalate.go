@@ -104,7 +104,7 @@ var lsCmd = &cobra.Command{
 		}
 
 		for _, addr := range w.Addresses {
-			fmt.Println(addr)
+			fmt.Println(addr.ID)
 		}
 	},
 }
@@ -120,7 +120,7 @@ var caCmd = &cobra.Command{
 		}
 
 		if len(w.Addresses) > 0 {
-			fmt.Println(w.Addresses[len(w.Addresses)-1])
+			fmt.Println(w.Addresses[len(w.Addresses)-1].ID)
 		}
 	},
 }
@@ -130,7 +130,17 @@ var balanceCmd = &cobra.Command{
 	Short:   "Get wallet balance",
 	Aliases: []string{"bc", "b"},
 	Run: func(cmd *cobra.Command, args []string) {
-		w, err := loadWallet()
+		_, walletFilePath, err := walletPaths()
+		if err != nil {
+			panic(err)
+		}
+
+		data, err := os.ReadFile(walletFilePath)
+		if err != nil {
+			panic(err)
+		}
+
+		w, err := Deserialize(data)
 		if err != nil {
 			panic(err)
 		}
@@ -141,6 +151,13 @@ var balanceCmd = &cobra.Command{
 		}
 
 		fmt.Println(balance)
+
+		data, err = w.Serialize()
+		if err != nil {
+			panic(err)
+		}
+
+		os.WriteFile(walletFilePath, data, 0644)
 	},
 }
 
@@ -187,7 +204,7 @@ var pollCmd = &cobra.Command{
 		var currentStats *AddressStats
 
 		for {
-			s, err := GetAddressStats(w.Addresses[len(w.Addresses)-1])
+			s, err := GetAddressStats(w.Addresses[len(w.Addresses)-1].ID)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -206,6 +223,37 @@ var pollCmd = &cobra.Command{
 	},
 }
 
+var updateCacheCmd = &cobra.Command{
+	Use:     "update-cache",
+	Short:   "Updates address cache",
+	Aliases: []string{"uc"},
+	Run: func(cmd *cobra.Command, args []string) {
+		_, walletFilePath, err := walletPaths()
+		if err != nil {
+			panic(err)
+		}
+
+		data, err := os.ReadFile(walletFilePath)
+		if err != nil {
+			panic(err)
+		}
+
+		w, err := Deserialize(data)
+		if err != nil {
+			panic(err)
+		}
+
+		w.UpdateCache()
+
+		data, err = w.Serialize()
+		if err != nil {
+			panic(err)
+		}
+
+		os.WriteFile(walletFilePath, data, 0644)
+	},
+}
+
 func main() {
 	rootCmd.AddCommand(newCmd)
 	rootCmd.AddCommand(receiveCmd)
@@ -214,6 +262,7 @@ func main() {
 	rootCmd.AddCommand(balanceCmd)
 	rootCmd.AddCommand(forgetCmd)
 	rootCmd.AddCommand(pollCmd)
+	rootCmd.AddCommand(updateCacheCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
