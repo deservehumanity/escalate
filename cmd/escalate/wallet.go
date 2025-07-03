@@ -159,16 +159,14 @@ func (w *Wallet) GetBalance() (int64, error) {
 
 func (w *Wallet) UpdateCache() error {
 	for i := range w.Addresses {
-		if time.Since(w.Addresses[i].CachedAt) > 5*time.Hour {
-			stats, err := GetAddressStats(w.Addresses[i].ID)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			w.Addresses[i].Stats = stats.ChainStats
-			w.Addresses[i].CachedAt = time.Now()
+		stats, err := GetAddressStats(w.Addresses[i].ID)
+		if err != nil {
+			fmt.Println(err)
+			continue
 		}
+
+		w.Addresses[i].Stats = stats.ChainStats
+		w.Addresses[i].CachedAt = time.Now()
 	}
 	return nil
 }

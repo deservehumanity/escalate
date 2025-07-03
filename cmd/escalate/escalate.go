@@ -217,7 +217,7 @@ var pollCmd = &cobra.Command{
 			}
 
 			time.Sleep(10 * time.Second)
-			s = currentStats
+			currentStats = s
 		}
 
 	},
