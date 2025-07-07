@@ -150,7 +150,7 @@ var balanceCmd = &cobra.Command{
 			panic(err)
 		}
 
-		fmt.Println(balance)
+		fmt.Println(float64(balance)/100_000_000, "BTC")
 
 		data, err = w.Serialize()
 		if err != nil {
