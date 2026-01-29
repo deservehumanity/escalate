@@ -1,6 +1,8 @@
 package main
 
 import (
+	"escalate/internal/client"
+	"escalate/internal/wallet"
 	"fmt"
 	"log"
 	"os"
@@ -38,14 +40,14 @@ var newCmd = &cobra.Command{
 			panic(err)
 		}
 
-		w, err := New()
+		c, _ := client.NewHttpClient()
+		w, err := wallet.New(&c)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		fmt.Println("Seed phrase:")
-		fmt.Println(w.Mnemonic)
+		fmt.Println(w.Mnemo)
 
 		data, err := w.Serialize()
 		if err != nil {
@@ -72,19 +74,20 @@ var receiveCmd = &cobra.Command{
 			panic(err)
 		}
 
-		wallet, err := Deserialize(data)
+		c, _ := client.NewHttpClient()
+		w, err := wallet.NewFromData(data, &c)
 		if err != nil {
 			panic(err)
 		}
 
-		addr, err := wallet.DeriveAddress()
+		address, err := w.DeriveAddress()
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println(addr)
+		fmt.Println(address.Addr)
 
-		data, err = wallet.Serialize()
+		data, err = w.Serialize()
 		if err != nil {
 			panic(err)
 		}
@@ -103,8 +106,8 @@ var lsCmd = &cobra.Command{
 			panic(err)
 		}
 
-		for _, addr := range w.Addresses {
-			fmt.Println(addr)
+		for _, address := range w.Addresses {
+			fmt.Println(address.Addr)
 		}
 	},
 }
@@ -120,7 +123,7 @@ var caCmd = &cobra.Command{
 		}
 
 		if len(w.Addresses) > 0 {
-			fmt.Println(w.Addresses[len(w.Addresses)-1])
+			fmt.Println(w.Addresses[len(w.Addresses)-1].Addr)
 		}
 	},
 }
@@ -140,38 +143,19 @@ var balanceCmd = &cobra.Command{
 			panic(err)
 		}
 
-		fmt.Println(balance)
-	},
-}
+		data, err := w.Serialize()
+		if err != nil {
+			panic(err)
+		}
 
-var forgetCmd = &cobra.Command{
-	Use:     "forget",
-	Short:   "Erase data about previous transactions. Creating new address will advance as if no addresses have beed forgotten",
-	Aliases: []string{"fg", "f"},
-	Run: func(cmd *cobra.Command, args []string) {
 		_, walletFilePath, err := walletPaths()
 		if err != nil {
 			panic(err)
 		}
 
-		data, err := os.ReadFile(walletFilePath)
-		if err != nil {
-			panic(err)
-		}
-
-		w, err := Deserialize(data)
-		if err != nil {
-			panic(err)
-		}
-
-		w.ForgetAllButFirst()
-
-		data, err = w.Serialize()
-		if err != nil {
-			panic(err)
-		}
-
 		os.WriteFile(walletFilePath, data, 0644)
+
+		fmt.Println(balance)
 	},
 }
 
@@ -184,10 +168,10 @@ var pollCmd = &cobra.Command{
 			panic(err)
 		}
 
-		var currentStats *AddressStats
+		var currentStats *client.AddressStats
 
 		for {
-			s, err := GetAddressStats(w.Addresses[len(w.Addresses)-1])
+			s, err := w.GetClient().GetAddressStats(w.Addresses[len(w.Addresses)-1].Addr)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -199,8 +183,9 @@ var pollCmd = &cobra.Command{
 				fmt.Println("After: ", s.ChainStats)
 			}
 
+			currentStats = &s
+
 			time.Sleep(10 * time.Second)
-			s = currentStats
 		}
 
 	},
@@ -212,7 +197,6 @@ func main() {
 	rootCmd.AddCommand(lsCmd)
 	rootCmd.AddCommand(caCmd)
 	rootCmd.AddCommand(balanceCmd)
-	rootCmd.AddCommand(forgetCmd)
 	rootCmd.AddCommand(pollCmd)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -220,7 +204,7 @@ func main() {
 	}
 }
 
-func loadWallet() (*Wallet, error) {
+func loadWallet() (*wallet.Wallet, error) {
 	_, walletFilePath, err := walletPaths()
 	if err != nil {
 		return nil, err
@@ -231,11 +215,11 @@ func loadWallet() (*Wallet, error) {
 		return nil, err
 
 	}
-
-	w, err := Deserialize(data)
+	c, _ := client.NewHttpClient()
+	w, err := wallet.NewFromData(data, &c)
 	if err != nil {
 		return nil, err
 	}
 
-	return w, nil
+	return &w, nil
 }
