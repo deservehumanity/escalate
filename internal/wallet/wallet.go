@@ -13,10 +13,10 @@ import (
 )
 
 type Wallet struct {
-	Mnemo        string
-	CurrentIndex uint32
-	Addresses    []Address
-	client       *client.HttpWalletClient
+	Mnemo        string                   `json:"mnemo"`
+	CurrentIndex uint32                   `json:"current_index"`
+	Addresses    []Address                `json:"addresses"`
+	client       *client.HttpWalletClient `json:"-"`
 }
 
 func New(c *client.HttpWalletClient) (*Wallet, error) {
@@ -107,8 +107,12 @@ func (w *Wallet) GetBalance() (int64, error) {
 
 	for idx, address := range w.Addresses {
 
-		bIsOlderThanDay := time.Since(address.UpdatedAt) >= time.Hour*24
-		if bIsOlderThanDay {
+		now := time.Now()
+		isUpdateStale := address.UpdatedAt.Before(now.Add(-24 * time.Hour))
+		isNewAddress := address.CreatedAt.After(now.Add(-24 * time.Hour))
+		wasNotUpdated := address.UpdatedAt.Equal(address.CreatedAt)
+
+		if isUpdateStale || (isNewAddress && wasNotUpdated) {
 			stats, err := w.client.GetAddressStats(address.Addr)
 			if err != nil {
 				log.Printf("failed to fetch data for %s", address.Addr)

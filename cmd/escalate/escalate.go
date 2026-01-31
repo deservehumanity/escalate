@@ -9,8 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/skip2/go-qrcode"
 	"github.com/spf13/cobra"
 )
+
+var verboseFlag bool = false
+var qrFlag bool = false
 
 func walletPaths() (walletPath, walletFilePath string, err error) {
 	home, err := os.UserHomeDir()
@@ -86,6 +90,14 @@ var receiveCmd = &cobra.Command{
 		}
 
 		fmt.Println(address.Addr)
+		if qrFlag {
+			qr, err := qrcode.New(address.Addr, qrcode.Medium)
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Println(qr.ToString(false))
+		}
 
 		data, err = w.Serialize()
 		if err != nil {
@@ -99,15 +111,27 @@ var receiveCmd = &cobra.Command{
 var lsCmd = &cobra.Command{
 	Use:     "list",
 	Short:   "List all used addresses",
-	Aliases: []string{"ls", "l"},
+	Aliases: []string{"ls"},
 	Run: func(cmd *cobra.Command, args []string) {
 		w, err := loadWallet()
 		if err != nil {
 			panic(err)
 		}
 
-		for _, address := range w.Addresses {
-			fmt.Println(address.Addr)
+		if verboseFlag {
+			for _, addr := range w.Addresses {
+				outString := fmt.Sprintf("%s [+%d sat | -%d sat]",
+					addr.Addr,
+					addr.Chain.FundedTxoSum,
+					addr.Chain.SpentTxoSum,
+				)
+
+				fmt.Println(outString)
+			}
+		} else {
+			for _, addr := range w.Addresses {
+				fmt.Println(addr.Addr)
+			}
 		}
 	},
 }
@@ -124,6 +148,17 @@ var caCmd = &cobra.Command{
 
 		if len(w.Addresses) > 0 {
 			fmt.Println(w.Addresses[len(w.Addresses)-1].Addr)
+		}
+
+		if qrFlag && len(w.Addresses) > 0 {
+			addr := w.Addresses[len(w.Addresses)-1].Addr
+			qr, err := qrcode.New(addr, qrcode.Medium)
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Println(qr.ToString(false))
+			// GENERATE A address qr code here
 		}
 	},
 }
@@ -185,13 +220,16 @@ var pollCmd = &cobra.Command{
 
 			currentStats = &s
 
-			time.Sleep(10 * time.Second)
+			time.Sleep(time.Minute)
 		}
-
 	},
 }
 
 func main() {
+	lsCmd.Flags().BoolVar(&verboseFlag, "verbose", false, "verbose output")
+	receiveCmd.Flags().BoolVar(&qrFlag, "qr", false, "generate a qr code")
+	caCmd.Flags().BoolVar(&qrFlag, "qr", false, "generate a qr code")
+
 	rootCmd.AddCommand(newCmd)
 	rootCmd.AddCommand(receiveCmd)
 	rootCmd.AddCommand(lsCmd)
